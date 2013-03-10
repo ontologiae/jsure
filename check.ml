@@ -317,7 +317,7 @@ let check ~dump_cd ~info_cd ~warn ~warn_cd ~error ~error_cd sources =
     | This -> ()
     | Array xl -> List.iter (check_expr env) xl
     | Object pl -> List.iter (fun (_, x) -> check_expr env x) pl
-    | Function(start_pos, end_pos, func) -> check_function { env with env_start = start_pos; env_end = end_pos } func
+    | Function( func, pos) -> check_function { env with env_start = pos.x; env_end = pos.y } func
   and check_statement ?(toplevel=false) env st =
     if !Opt.dump_env then
       begin
@@ -325,9 +325,9 @@ let check ~dump_cd ~info_cd ~warn ~warn_cd ~error ~error_cd sources =
         dump_env env
       end;
     match st with
-    | Position(start_pos, end_pos, s) ->
+ (*   | Position(start_pos, end_pos, s) ->
         let env' = { env with env_start = start_pos; env_end = end_pos } in
-        check_statement ~toplevel env' s
+        check_statement ~toplevel env' s *)
     | Expr x -> check_expr ~toplevel env x
     | If(x, s, so) ->
         check_expr env x;

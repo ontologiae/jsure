@@ -10,93 +10,104 @@ exception Bad_trees of Ecma.tree list;;
 
 let int32_of_string u = Int64.to_int32 (Int64.of_string u);;
 
+let getpos x y = {x=x;y=y};;
+
+let get_info_position_init x y = {
+        types_possibles = [Undefined_type;Null_type];
+        chemin_parcouru = [getpos x y];
+        is_potentiellement_undefined = true;
+        is_certainement_undefined    = true;
+}
+
 let rec convert = function
   | Node(N_Root, _, [Node(N_Program, _, sl)]) -> convert_source_elements sl
   | t -> raise (Bad_tree t)
 and convert_source_elements sl = List.map convert_source_element sl
 and convert_source_element = function
-  | Node(N_St, [A_start, start_pos; A_end, end_pos], [st]) -> St(int_of_string start_pos, int_of_string end_pos, convert_statement st)
+  | Node(N_St, [A_start, start_pos; A_end, end_pos], [st]) -> let x,y = int_of_string start_pos, int_of_string end_pos  in
+                                                                St(x,y, convert_statement x y st)
   | Node(N_FunDecl, [A_start, start_pos; A_name, name; A_end, end_pos], [Node(N_Args, [], al); Node(N_Body, _, sl)]) ->
       FunDecl(int_of_string start_pos, int_of_string end_pos, (Some name, List.map convert_arg al, convert_source_elements sl))
   | t -> raise (Bad_tree t)
 and convert_arg = function
   | Node(N_Arg, [A_name, name], []) -> name
   | t -> raise (Bad_tree t)
-and convert_block stl = Block(List.map convert_statement stl)
-and convert_case = function
+and convert_block x y stl = Block(  List.map (convert_statement x y) stl, getpos x y,   get_info_position_init x y    ) 
+and convert_case x y = function
   | Node(N_Case, [], [Node(N_Clauses, [], clauses); Node(N_Body, [], body)]) ->
-      (List.map convert_clause clauses, convert_block body)
+      (List.map convert_clause clauses, convert_block x y body)
   | t -> raise (Bad_tree t)
 and convert_clause = function
   | Node(N_Default, [], []) -> Default
   | Node(N_When, [], [x]) -> Case(convert_expression x)
   | t -> raise (Bad_tree t)
-and convert_statement = function
-  | Node(N_Position, [A_start, start_pos; A_end, end_pos], [st]) -> Position(int_of_string start_pos, int_of_string end_pos, convert_statement st)
-  | Node(N_Break, [], []) -> Break None
-  | Node(N_Break, [A_label, label], []) -> Break(Some label)
-  | Node(N_Continue, [], []) -> Continue None
-  | Node(N_Label, [A_name, label], [Node(N_Body, [], [st])]) -> Labeled(label, convert_statement st)
-  | Node(N_Continue, [A_label, label], []) -> Continue(Some label)
-  | Node(N_Throw, [], [x]) -> Throw(convert_expression x)
-  | Node(N_Switch, [], x :: cases) -> Switch(convert_expression x, List.map convert_case cases)
-  | Node(N_With, [], [x; Node(N_Body, [], [s])]) -> With(convert_expression x, convert_statement s)
+and convert_statement x y = function(*Mettre un x y en plus en arg, et renvoyer comme ça ?*)
+  | Node(N_Position, [A_start, start_pos; A_end, end_pos], [st]) -> let x,y = int_of_string start_pos, int_of_string end_pos in 
+                                                                        convert_statement x y st
+  | Node(N_Break, [], []) -> Break (None, getpos x y, get_info_position_init x y)
+  | Node(N_Break, [A_label, label], []) -> Break((Some label), getpos x y, get_info_position_init x y)
+  | Node(N_Continue, [], []) -> Continue( None, getpos x y, get_info_position_init x y)
+  | Node(N_Label, [A_name, label], [Node(N_Body, [], [st])]) -> Labeled(label, convert_statement x y st, getpos x y, get_info_position_init x y)
+  | Node(N_Continue, [A_label, label], []) -> Continue((Some label), getpos x y, get_info_position_init x y)
+  | Node(N_Throw, [], [xx]) -> Throw(convert_expression xx, getpos x y, get_info_position_init x y)
+  | Node(N_Switch, [], xx :: cases) -> Switch(convert_expression xx, List.map (convert_case x y) cases, getpos x y, get_info_position_init x y)
+  | Node(N_With, [], [xx; Node(N_Body, [], [s])]) -> With(convert_expression xx, convert_statement x y s, getpos x y, get_info_position_init x y)
   | Node(N_EmptyStatement, [], []) -> Nop
-  | Node(N_ExpressionStatement, [], [x]) -> Expr(convert_expression x)
-  | Node(N_Block, [], sl) -> convert_block sl
-  | Node(N_Return, [], [x]) -> Return(Some(convert_expression x))
-  | Node(N_Return, [], []) -> Return None
-  | Node(N_VariableStatement, [], vl) -> Variable(List.map convert_variable_declaration vl)
-  | Node(N_If, [], [Node(N_Condition, [], [x]);
+  | Node(N_ExpressionStatement, [], [xx]) -> Expr(convert_expression xx, getpos x y, get_info_position_init x y)
+  | Node(N_Block, [], sl) -> convert_block x y sl
+  | Node(N_Return, [], [xx]) -> Return((Some(convert_expression xx)), getpos x y, get_info_position_init x y)
+  | Node(N_Return, [], []) -> Return (None, getpos x y, get_info_position_init x y)
+  | Node(N_VariableStatement, [], vl) -> Variable(List.map convert_variable_declaration vl, getpos x y, get_info_position_init x y)
+  | Node(N_If, [], [Node(N_Condition, [], [xx]);
                     Node(N_True, [], [s1]);
                     Node(N_False, [], [s2])]) ->
-      If(convert_expression x, convert_statement s1, Some(convert_statement s2))
-  | Node(N_If, [], [Node(N_Condition, [], [x]); Node(N_True, [], [s])]) ->
-      If(convert_expression x, convert_statement s, None)
-  | Node(N_Do, [], [Node(N_Loop, [], [s]); Node(N_Condition, [], [x])]) ->
-      Do(convert_statement s, convert_expression x)
-  | Node(N_While, [], [Node(N_Condition, [], [x]); Node(N_Loop, [], [s])]) ->
-      While(convert_expression x, convert_statement s)
-  | Node(N_ForIn, [], [Node(N_Index, [], [x]);
+      If(convert_expression xx, convert_statement x y s1, Some(convert_statement x y s2), getpos x y, get_info_position_init x y)
+  | Node(N_If, [], [Node(N_Condition, [], [xx]); Node(N_True, [], [s])]) ->
+      If(convert_expression xx, convert_statement x y s, None, getpos x y, get_info_position_init x y)
+  | Node(N_Do, [], [Node(N_Loop, [], [s]); Node(N_Condition, [], [xx])]) ->
+      Do(convert_statement x y s, convert_expression xx, getpos x y, get_info_position_init x y)
+  | Node(N_While, [], [Node(N_Condition, [], [xx]); Node(N_Loop, [], [s])]) ->
+      While(convert_expression xx, convert_statement x y s, getpos x y, get_info_position_init x y)
+  | Node(N_ForIn, [], [Node(N_Index, [], [xx]);
                        Node(N_Container, [], [c]);
                        Node(N_Loop, [], [s])]) ->
-      ForIn(convert_lhs_or_var x, convert_expression c, convert_statement s)
+      ForIn(convert_lhs_or_var xx, convert_expression c, convert_statement x y  s, getpos x y, get_info_position_init x y)
   | Node(N_For, [], z) ->
       begin
         let start, rest =
           match z with
-          | Node(N_Start, [], [s]) :: rest -> Some(convert_statement s), rest
+          | Node(N_Start, [], [s]) :: rest -> Some(convert_statement x y  s), rest
           | _ -> None, z
         in
         let condition, rest =
           match rest with
-          | Node(N_Condition, [], [s]) :: rest -> Some(convert_statement s), rest
+          | Node(N_Condition, [], [s]) :: rest -> Some(convert_statement x y s), rest
           | _ -> None, rest
         in
         let next, rest =
           match rest with
-          | Node(N_Next, [], [s]) :: rest -> Some(convert_statement s), rest
+          | Node(N_Next, [], [s]) :: rest -> Some(convert_statement x y s), rest
           | _ -> None, rest
         in
         match rest with
-        | [Node(N_Loop, [], [s])] -> For(start, condition, next, convert_statement s)
+        | [Node(N_Loop, [], [s])] -> For(start, condition, next, convert_statement x y s, getpos x y, get_info_position_init x y)
         | ts -> raise (Bad_trees ts)
       end
   | Node(N_Try, [], (Node(N_Block, [], block)) :: rest) as t ->
-      let block = convert_block block in
+      let block = convert_block x y block in
       begin
         let catch, rest =
           match rest with
-          | (Node(N_Catch, [], [Node(N_Arg, [A_name, name] , []); Node(N_Body, [], block)])) :: rest -> Some(name, convert_block block), rest
+          | (Node(N_Catch, [], [Node(N_Arg, [A_name, name] , []); Node(N_Body, [], block)])) :: rest -> Some(name, convert_block x y  block), rest
           | _ -> None, rest
         in
         let finally =
           match rest with
-          | [Node(N_Finally, [], block)] -> Some(convert_block block)
+          | [Node(N_Finally, [], block)] -> Some(convert_block x y block)
           | [] -> None
           | _ -> raise (Bad_tree t)
         in
-        Try(block, catch, finally)
+        Try(block, catch, finally, getpos x y, get_info_position_init x y)
       end
   | t -> raise (Bad_tree t)
 and convert_lhs_or_var = function
@@ -111,9 +122,9 @@ and convert_expression = function
   | Node(N_Expression, [], xl) -> Sq(List.map convert_expression xl)
   | Node(N_Array, [], xl) -> Array(List.map convert_expression xl)
   | Node(N_Function, [A_start, start_pos; A_name, name; A_end, end_pos], [Node(N_Args, [], al); Node(N_Body, _, sl)]) ->
-      Function(int_of_string start_pos, int_of_string end_pos, (Some name, List.map convert_arg al, convert_source_elements sl))
+      Function((Some name, List.map convert_arg al, convert_source_elements sl), getpos (int_of_string start_pos) (int_of_string end_pos) )
   | Node(N_Function, [A_start, start_pos; A_end, end_pos], [Node(N_Args, [], al); Node(N_Body, _, sl)]) ->
-      Function(int_of_string start_pos, int_of_string end_pos, (None, List.map convert_arg al, convert_source_elements sl))
+      Function((None, List.map convert_arg al, convert_source_elements sl),getpos (int_of_string start_pos) (int_of_string end_pos) )
   | Node(N_String, [A_value, v], []) -> L(String v)
   | Node(N_Regexp, (A_body, body) :: options', []) as t ->
       let options = match options' with
