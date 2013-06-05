@@ -32,7 +32,7 @@ and convert_source_element = function
 and convert_arg = function
   | Node(N_Arg, [A_name, name], []) -> name
   | t -> raise (Bad_tree t)
-and convert_block x y stl = Block(  List.map (convert_statement x y) stl, getpos x y,   get_info_position_init x y    ) 
+and convert_block x y stl = Block(  List.map (convert_statement x y) stl, getpos x y,  new_pointer( get_info_position_init x y )   ) 
 and convert_case x y = function
   | Node(N_Case, [], [Node(N_Clauses, [], clauses); Node(N_Body, [], body)]) ->
       (List.map convert_clause clauses, convert_block x y body)
@@ -44,34 +44,34 @@ and convert_clause = function
 and convert_statement x y = function(*Mettre un x y en plus en arg, et renvoyer comme ça ?*)
   | Node(N_Position, [A_start, start_pos; A_end, end_pos], [st]) -> let x,y = int_of_string start_pos, int_of_string end_pos in 
                                                                         convert_statement x y st
-  | Node(N_Break, [], []) -> Break (None, getpos x y, get_info_position_init x y)
-  | Node(N_Break, [A_label, label], []) -> Break((Some label), getpos x y, get_info_position_init x y)
-  | Node(N_Continue, [], []) -> Continue( None, getpos x y, get_info_position_init x y)
-  | Node(N_Label, [A_name, label], [Node(N_Body, [], [st])]) -> Labeled(label, convert_statement x y st, getpos x y, get_info_position_init x y)
-  | Node(N_Continue, [A_label, label], []) -> Continue((Some label), getpos x y, get_info_position_init x y)
-  | Node(N_Throw, [], [xx]) -> Throw(convert_expression xx, getpos x y, get_info_position_init x y)
-  | Node(N_Switch, [], xx :: cases) -> Switch(convert_expression xx, List.map (convert_case x y) cases, getpos x y, get_info_position_init x y)
-  | Node(N_With, [], [xx; Node(N_Body, [], [s])]) -> With(convert_expression xx, convert_statement x y s, getpos x y, get_info_position_init x y)
+  | Node(N_Break, [], []) -> Break (None, getpos x y, new_pointer (get_info_position_init x y))
+  | Node(N_Break, [A_label, label], []) -> Break((Some label), getpos x y, new_pointer (get_info_position_init x y))
+  | Node(N_Continue, [], []) -> Continue( None, getpos x y, new_pointer (get_info_position_init x y))
+  | Node(N_Label, [A_name, label], [Node(N_Body, [], [st])]) -> Labeled(label, convert_statement x y st, getpos x y, new_pointer (get_info_position_init x y))
+  | Node(N_Continue, [A_label, label], []) -> Continue((Some label), getpos x y, new_pointer (get_info_position_init x y))
+  | Node(N_Throw, [], [xx]) -> Throw(convert_expression xx, getpos x y, new_pointer (get_info_position_init x y))
+  | Node(N_Switch, [], xx :: cases) -> Switch(convert_expression xx, List.map (convert_case x y) cases, getpos x y, new_pointer (get_info_position_init x y))
+  | Node(N_With, [], [xx; Node(N_Body, [], [s])]) -> With(convert_expression xx, convert_statement x y s, getpos x y, new_pointer (get_info_position_init x y))
   | Node(N_EmptyStatement, [], []) -> Nop
-  | Node(N_ExpressionStatement, [], [xx]) -> Expr(convert_expression xx, getpos x y, get_info_position_init x y)
+  | Node(N_ExpressionStatement, [], [xx]) -> Expr(convert_expression xx, getpos x y, new_pointer (get_info_position_init x y))
   | Node(N_Block, [], sl) -> convert_block x y sl
-  | Node(N_Return, [], [xx]) -> Return((Some(convert_expression xx)), getpos x y, get_info_position_init x y)
-  | Node(N_Return, [], []) -> Return (None, getpos x y, get_info_position_init x y)
-  | Node(N_VariableStatement, [], vl) -> Variable(List.map convert_variable_declaration vl, getpos x y, get_info_position_init x y)
+  | Node(N_Return, [], [xx]) -> Return((Some(convert_expression xx)), getpos x y, new_pointer (get_info_position_init x y))
+  | Node(N_Return, [], []) -> Return (None, getpos x y, new_pointer (get_info_position_init x y))
+  | Node(N_VariableStatement, [], vl) -> Variable(List.map convert_variable_declaration vl, getpos x y, new_pointer (get_info_position_init x y))
   | Node(N_If, [], [Node(N_Condition, [], [xx]);
                     Node(N_True, [], [s1]);
                     Node(N_False, [], [s2])]) ->
-      If(convert_expression xx, convert_statement x y s1, Some(convert_statement x y s2), getpos x y, get_info_position_init x y)
+      If(convert_expression xx, convert_statement x y s1, Some(convert_statement x y s2), getpos x y, new_pointer (get_info_position_init x y))
   | Node(N_If, [], [Node(N_Condition, [], [xx]); Node(N_True, [], [s])]) ->
-      If(convert_expression xx, convert_statement x y s, None, getpos x y, get_info_position_init x y)
+      If(convert_expression xx, convert_statement x y s, None, getpos x y, new_pointer (get_info_position_init x y))
   | Node(N_Do, [], [Node(N_Loop, [], [s]); Node(N_Condition, [], [xx])]) ->
-      Do(convert_statement x y s, convert_expression xx, getpos x y, get_info_position_init x y)
+      Do(convert_statement x y s, convert_expression xx, getpos x y, new_pointer (get_info_position_init x y))
   | Node(N_While, [], [Node(N_Condition, [], [xx]); Node(N_Loop, [], [s])]) ->
-      While(convert_expression xx, convert_statement x y s, getpos x y, get_info_position_init x y)
+      While(convert_expression xx, convert_statement x y s, getpos x y, new_pointer (get_info_position_init x y))
   | Node(N_ForIn, [], [Node(N_Index, [], [xx]);
                        Node(N_Container, [], [c]);
                        Node(N_Loop, [], [s])]) ->
-      ForIn(convert_lhs_or_var xx, convert_expression c, convert_statement x y  s, getpos x y, get_info_position_init x y)
+      ForIn(convert_lhs_or_var xx, convert_expression c, convert_statement x y  s, getpos x y, new_pointer (get_info_position_init x y))
   | Node(N_For, [], z) ->
       begin
         let start, rest =
@@ -90,7 +90,7 @@ and convert_statement x y = function(*Mettre un x y en plus en arg, et renvoyer 
           | _ -> None, rest
         in
         match rest with
-        | [Node(N_Loop, [], [s])] -> For(start, condition, next, convert_statement x y s, getpos x y, get_info_position_init x y)
+        | [Node(N_Loop, [], [s])] -> For(start, condition, next, convert_statement x y s, getpos x y, new_pointer (get_info_position_init x y))
         | ts -> raise (Bad_trees ts)
       end
   | Node(N_Try, [], (Node(N_Block, [], block)) :: rest) as t ->
@@ -107,7 +107,7 @@ and convert_statement x y = function(*Mettre un x y en plus en arg, et renvoyer 
           | [] -> None
           | _ -> raise (Bad_tree t)
         in
-        Try(block, catch, finally, getpos x y, get_info_position_init x y)
+        Try(block, catch, finally, getpos x y, new_pointer (get_info_position_init x y))
       end
   | t -> raise (Bad_tree t)
 and convert_lhs_or_var = function
@@ -115,8 +115,8 @@ and convert_lhs_or_var = function
   | Node(N_Vars, [], vl) -> Vars(List.map convert_variable_declaration vl)
   | t -> raise (Bad_tree t)
 and convert_variable_declaration = function
-  | Node(N_VariableDeclaration, [A_name, name], []) -> (name, None)
-  | Node(N_VariableDeclaration, [A_name, name], [x]) -> (name, Some(convert_expression x))
+  | Node(N_VariableDeclaration, [A_name, name], []) -> (name, None,new_pointer fais_pas_chier)
+  | Node(N_VariableDeclaration, [A_name, name], [x]) -> (name, Some(convert_expression x),new_pointer fais_pas_chier)
   | t -> raise (Bad_tree t)
 and convert_expression = function
   | Node(N_Expression, [], xl) -> Sq(List.map convert_expression xl)

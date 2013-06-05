@@ -38,15 +38,15 @@ top:
 	/opt/local/bin/ocamlc.opt -c -g -I +aurochs_lib -custom -o ecma.cmo ecma.ml
 	/opt/local/bin/ocamlc.opt -c -g -I +aurochs_lib -o qwerty.cmo qwerty.ml
 	/opt/local/bin/ocamlc.opt -c -g -I +aurochs_lib -o levenshtein.cmo levenshtein.ml
-	ocamlfind ocamlc -package dbm  -c -g -I +aurochs_lib -o cache.cmo cache.ml
+	#ocamlfind ocamlc -package dbm  -c -g -I +aurochs_lib -o cache.cmo cache.ml
 	#/opt/local/bin/ocamlc.opt -c -I /opt/local/lib/ocaml/site-lib/dbm -g -I +aurochs_lib -o check.cmo check.ml
 	/opt/local/bin/ocamlc.opt -c -I /opt/local/lib/ocaml/site-lib/dbm -g -I +aurochs_lib -o convert.cmo convert.ml
-	/opt/local/bin/ocamlc.opt -c -I /opt/local/lib/ocaml/site-lib/dbm -g -I +aurochs_lib -o eval.cmo eval.ml
-	/opt/local/bin/ocamlc.opt -c -I /opt/local/lib/ocaml/site-lib/dbm -g -I +aurochs_lib -o generate.cmo generate.ml
+	#/opt/local/bin/ocamlc.opt -c -I /opt/local/lib/ocaml/site-lib/dbm -g -I +aurochs_lib -o eval.cmo eval.ml
+	#/opt/local/bin/ocamlc.opt -c -I /opt/local/lib/ocaml/site-lib/dbm -g -I +aurochs_lib -o generate.cmo generate.ml
 	/opt/local/bin/ocamlc.opt -c -I /opt/local/lib/ocaml/site-lib/dbm -g -I +aurochs_lib -o minefield.cmo minefield.ml
-	/opt/local/bin/ocamlc.opt -c -I /opt/local/lib/ocaml/site-lib/dbm -g -I +aurochs_lib -o process.cmo process.ml
+	#/opt/local/bin/ocamlc.opt -c -I /opt/local/lib/ocaml/site-lib/dbm -g -I +aurochs_lib -o process.cmo process.ml
 	/opt/local/bin/ocamlc.opt -c -I /opt/local/lib/ocaml/site-lib/dbm -g -I +aurochs_lib -o version.cmo version.ml
-	/opt/local/bin/ocamlc.opt -c -I /opt/local/lib/ocaml/site-lib/dbm -g -custom -I +aurochs_lib -pp camlp4o -o jsure.cmo jsure.ml
+	#/opt/local/bin/ocamlc.opt -c -I /opt/local/lib/ocaml/site-lib/dbm -g -custom -I +aurochs_lib -pp camlp4o -o jsure.cmo jsure.ml
 	utop -I /opt/local/lib/ocaml/site-lib/aurochs_lib/ -init top.ml
 
 
