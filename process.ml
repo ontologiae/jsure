@@ -298,7 +298,7 @@ let sources oc sl =
   (*** check_file *)
   let cache = match !Opt.cache with
     | None -> None
-    | Some fn -> Some(Cache.create ~version:Ast.version fn)
+    | Some fn -> None (*Some(Cache.create ~version:Ast.version fn)*)
   in
   let check_source src =
     info "Loading";
@@ -328,15 +328,7 @@ let sources oc sl =
         match cache with
         | None -> reparse ()
         | Some c ->
-          try
-            let t = Cache.get c fn u in
-            info (sf "Cached parse tree for %S" fn);
-            t
-          with
-          | Not_found ->
-            let t = reparse () in
-            Cache.set c fn u t;
-            t
+             reparse () 
       in
       (* ***)
       if !Opt.just_syntax then
@@ -415,11 +407,10 @@ let sources oc sl =
   in
   (* ***)
   (*** close_cache *)
-  let close_cache () =
+(*  let close_cache () =
     match cache with
     | None -> ()
-    | Some c -> Cache.close c
-  in
+    | Some c -> Cache.close c*)
   (* ***)
   try
     check_extensions ();
@@ -449,7 +440,6 @@ let sources oc sl =
     { res_errors = List.rev result.res_errors; res_warnings = List.rev result.res_warnings }
   with
   | x ->
-    close_cache ();
     match x with
     | Exit -> result
     | _ -> raise x
