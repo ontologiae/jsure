@@ -390,7 +390,7 @@ let sources oc sl =
         end
     with
     | Aurochs_pack.Aurochs.Parse_error x ->
-        error_cd
+      (*  error_cd
           (fun cd oc ->
             cd.cd_print
             oc
@@ -398,7 +398,7 @@ let sources oc sl =
             fn
             (scribe_position liner cd)
             (x, x + 1)
-            (Excerpt.excerpt liner u x (x + 1)))
+            (*(Excerpt.excerpt liner u x (x + 1)*)) *) ()
     | x -> 
         if !Opt.dont_catch then
           raise x

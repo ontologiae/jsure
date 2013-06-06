@@ -1,13 +1,13 @@
 (*#require "aurochs_lib";;*)
-#require "extlib";;
+#require "batteries";;
 #require "str";;
 print_endline "ast";;
 #load "ast.cmo";;
+#load "pffpsf.cmo";;
 print_endline "convert";;
 #load "convert.cmo";;
 print_endline "process";;
-
-#load "process.cmo";;
+#load "callgraph.cmo";;
 
 (*#load "pffpsf.cmo";;
 #load "ansi.cmo";;
@@ -31,11 +31,13 @@ print_endline "process";;
 #load "version.cmo";;*)
 #print_length 10000;;
 #print_depth 10000;;
+print_endline "Opens";;
 
 open Ast;;
-
+open Source;;
+open Liner;;
 (*let src = Process.read_source (`File "tests/flowanalysis.js");;*)
-
+open Callgraph;;
 
 
 
@@ -311,4 +313,34 @@ let callgraphExemple =
       St (424, 428, Position (424, 428, Expr (Apply (V "f1", []))));
       St (431, 448, Position (431, 448, Variable [("something", Some (L (String "")))]));
       St (451, 467, Position (451, 467, Return (Some (V "something"))))]));
-   FunDecl (473, 501, (Some "main", [], [St (492, 496, Position (492, 496, Expr (Apply (V "f7", []))))]))]
+   FunDecl (473, 501, (Some "main", [], [St (492, 496, Position (492, 496, Expr
+   (Apply (V "f7", []))));  St (492, 496, Position (492, 496, Expr
+   (Apply (V "f1", []))));   ]))];;
+
+
+let callgraphExempleSource = {
+        s_file = "";
+        s_text = "";
+        s_source = callgraphExemple;
+        s_liner =  {
+                l_length = 0;
+                l_table = [|8,8|];
+                l_offset = 8
+        };
+  s_ignorify = false;
+  s_warnify = false;
+  };;
+
+let h2l h = BatList.of_enum (BatHashtbl.enum h);;
+
+
+
+Callgraph.callgraph [callgraphExempleSource];;
+ let arbolist = (!^ Callgraph.dyn_call_list);;
+ #trace check_function;;
+ #trace check_statement_option;;
+  #trace check_expr_as_lhs;;
+  #trace check_expr;;
+  #trace check_statement;;
+  #trace check_lhs_or_var;;
+  #trace check_variable_declaration;;
