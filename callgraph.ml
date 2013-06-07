@@ -107,60 +107,72 @@ let fusionne l = let groupes = BatList.group (fun a -> fun b -> if a = b then 0 
          List.map combineOne groupes;;
 
 
-let hash_verif_recursiv_arbre =  H.create 1024 ;;
+let (hash_verif_recursiv_arbre : (string,bool) H.t) =  H.create 1024 ;;
 
 
-let rec construit_arbre hpid  noeudss feuilles  node =
-                let profondeur_max  = 8 in
-                let profondeur_cour = BatList.length (H.find_all hash_verif_recursiv_arbre node )  in
-                let r               =  string_of_int (Random.int 100) in
-                (* je cherche dans la H, toutes les fonctions déclarées ayant le nom de fun_call*)
-                let _          = H.add hash_verif_recursiv_arbre node r in
-                let  sous_arbre     = match profondeur_cour > profondeur_max with
-                                        | true  -> (*print_endline ("Cas de récursion à l'ordre "^string_of_int profondeur_cour )*) []
-                                        | false -> BatList.unique (
-                                List.map (construit_arbre hpid noeudss feuilles ) 
-                                         (BatList.flatten (BatList.map (fun elem -> BatList.filter (fun e -> elem.fun_call = e.pere) (noeudss@feuilles)) (H.find_all hpid node.pere)))
-                                )  in
-                match BatList.exists ( fun e -> e.pere = node.pere) noeudss with
-                | false ->  Feuille node.pere
-                | true  -> if profondeur_cour < profondeur_max then  Noeud (node.pere, BatList.unique (fusionne sous_arbre)) else Feuille ("RECURSION"^r);;
 
-
-(*
 let rec check_recursive 
                 (hpid : (string, func_call) H.t) 
                 (hid : (string, func_call) H.t) 
-                nom_fonction = (*répond à la question : Est-ce que cette fonction appelée appelle une fonction qui fait partie des n pères de cette fonction*)
+                (nom_fonction : string) = (*répond à la question : Est-ce que cette fonction appelée appelle une fonction qui fait partie des n pères de cette fonction*)
                 (* la fonction  est-elle appelée dans une fonction ?)*) 
-                let nodes_fonction                     = try Some ( BatList.unique (H.find_all hpid nom_fonction) ) with Not_found -> None in
-                let check_exist_un_pere  nom_fonction = H.mem hid nom_fonction in
-                let find f l = BatList.find_exn f Not_found l in
+                let nodes_fonction                     =  ( BatList.unique (H.find_all hpid nom_fonction) ) in
                 (*Renvoi la liste des fonction qui appellent cette fonction*)
                 let check_pere_appelle fonction       = 
                                                         let peres_possibles = H.find_all hid fonction in
                                                         BatList.unique (BatList.filter (fun e -> e.fun_call = fonction) peres_possibles) in (* un peu stupide...*)
                 let liste_des_peres_de fonction       =
-                         let rec rec_liste_des_peres_de fonction   = 
-                                        let l = check_pere_appelle fonction in
+                         let rec rec_liste_des_peres_de (fonction : func_call)   = 
+                                        let l = check_pere_appelle fonction.pere in
                                         match l with
                                         | []    -> []
-                                        | t::q  ->  (BatList.unique (check_pere_appelle fonction))@(BatList.unique (BatList.flatten (BatList.map (fun e -> check_pere_appelle e.pere) q))) 
+                                        | t::q  ->  (BatList.unique (check_pere_appelle fonction.pere))@(BatList.unique (BatList.flatten (BatList.map (fun e -> check_pere_appelle e.pere) q))) 
                 in try BatList.flatten (BatList.map rec_liste_des_peres_de (BatList.unique (H.find_all hpid nom_fonction)) ) with Not_found -> [] 
-                         in
-                match nodes_fonction with
-                | None          -> false (* C'est bon, pas récursive*)
-                | Some fonctions -> (** on récupère les pères possibles *)
-                                let peres = BatList.unique (BatList.flatten (BatList.map liste_des_peres_de fonctions)) in
-                                (* Soit Ni les nodes représentant la fonction (node.pere) dont on vérifie qu'elle est pas recursive
-                                 * Soit Pi, la liste des nodes n pères des Ni
-                                 * On veut savoir si Exist k,l tq Pk.fun_call = Nl.pere  *)
-                            try BatList.length (find (fun pere -> BatList.exists (fun node -> node.pere =  pere.fun_call) fonctions) peres) > 0 with Not_found -> false
-*)
+                in
+                try H.find hash_verif_recursiv_arbre nom_fonction
+                with Not_found -> 
+                        match nodes_fonction with
+                        | []          -> false (* C'est bon, pas récursive*)
+                        | fonctions   -> (** on récupère les pères possibles *)
+                                        let peres = BatList.unique (BatList.flatten (BatList.map liste_des_peres_de fonctions)) in
+                                        (* Soit Ni les nodes représentant la fonction (node.pere) dont on vérifie qu'elle est pas recursive
+                                         * Soit Pi, la liste des nodes n pères des Ni
+                                         * On veut savoir si Exist k,l tq Pk.fun_call = Nl.pere  *)
+                                        try let res = BatList.length (BatList.filter (fun pere -> BatList.exists (fun node -> node.pere =  pere.fun_call) fonctions) peres) > 0 in
+                                            let _   = H.add hash_verif_recursiv_arbre nom_fonction res in
+                                            res
+                                        with Not_found -> let _   = H.add hash_verif_recursiv_arbre nom_fonction false in false
+
+(*construit_arbre**** <-- {pere = "p.cherche_tous_dans_arbo"; fun_call = "func"}
+construit_arbre**** <-- {pere = "func"; fun_call = ""}
+construit_arbre**** <-- {pere = "_.flatten"; fun_call = ""}
+construit_arbre**** <-- {pere = "_.map"; fun_call = ""}
+construit_arbre**** <-- {pere = "p.cherche_tous_dans_arbo"; fun_call = "func"}*)
+
+let rec construit_arbre hpid hid noeudss feuilles dejavu node =
+                let profondeur_max  = 8 in
+                let newdejavu       = node::dejavu in
+                let r               =  string_of_int (Random.int 100) in
+                (* je cherche dans la H, toutes les fonctions déclarées ayant le nom de fun_call*)
+                let  sous_arbre     = match check_recursive hpid hid node.fun_call ||  BatList.exists (fun e -> e = node ) dejavu with
+                                        | true  -> (*print_endline ("Cas de récursion à l'ordre "^string_of_int profondeur_cour )*) [Feuille "RECURSION"]
+                                        | false -> BatList.unique (
+                                List.map (construit_arbre hpid hid noeudss feuilles newdejavu ) 
+                                         (BatList.flatten (BatList.map (fun elem -> BatList.filter (fun e -> elem.fun_call = e.pere) (noeudss@feuilles)) (H.find_all hpid node.pere)))
+                                )  in
+                match BatList.exists ( fun e -> e.pere = node.pere) noeudss with
+                | false ->  Feuille node.pere
+                | true  ->  (*if check_recursive hpid hid node.fun_call ||  BatList.exists (fun e -> e = node ) dejavu  then*)  Noeud (node.pere, BatList.unique (fusionne sous_arbre)) (*else Feuille
+                ("RECURSION"^r)*);;
+
+
+
+                            
 
 
 let arborify arbolist =
-         let hpid1 = H.create 1024 in
+        let _     = print_endline "Arborifyng" in
+        let hpid1 = H.create 1024 in
         let _   = List.iter (fun n -> H.add hpid1 n.pere n) arbolist in
 
         let arbolistf = BatList.unique  (arbolist@(BatList.unique (BatList.map (fun i -> { pere = i.fun_call ; fun_call = ""} )   (List.filter (fun e -> not (H.mem hpid1 e.fun_call) )  arbolist)))) in
@@ -178,7 +190,7 @@ let arborify arbolist =
 
         let feuilles = BatList.unique (H.find_all hid "") in
         let  noeuds = let _,n = (BatList.split (h2l hpid)) in BatList.unique n in
-        fusionne (BatList.unique (List.map (construit_arbre hpid noeuds feuilles ) racines))
+        fusionne (BatList.unique (List.map (construit_arbre hpid hid noeuds feuilles [] ) racines))
 
 
 
@@ -263,7 +275,7 @@ let rec to_string  nbindent n =
                     let nom,vars,code = func in
                     let nom_final = 
                             match nom with
-                            | None   ->  fonction_mere^"-->anonyme__"^(string_of_int start_pos)
+                            | None   ->  fonction_mere (*on considère que même si c'est une fonction interne, c'est la fonction mère qui nous intéresse, on va pas suivre les lambda à la trace*)
                             | Some n ->  n in
                     check_function nom_final func
 

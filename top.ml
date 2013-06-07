@@ -388,6 +388,27 @@ let treeString f =
         let _     = Gc.full_major() in 
         String.concat "\n" strs;;
 
+let arborify2 arbolist =
+        let _     = print_endline "Arborifyng" in
+        let hpid1 = H.create 1024 in
+        let _   = List.iter (fun n -> H.add hpid1 n.pere n) arbolist in
+
+        let arbolistf = BatList.unique  (arbolist@(BatList.unique (BatList.map (fun i -> { pere = i.fun_call ; fun_call = ""} )   (List.filter (fun e -> not (H.mem hpid1 e.fun_call) )  arbolist)))) in
+               (*Liste des pères*)
+        let hpid = H.create 1024 in
+        let _   = List.iter (fun n -> H.add hpid n.pere n) (List.filter (fun n -> not (n.fun_call = "")) arbolistf) in
+
+        (* liste des items *)
+        let hid = H.create 1024 in
+        let _   = List.iter (fun n -> H.add hid n.fun_call n) arbolistf in
+
+        (* Liste des élément sans racines*)
+        let racines = BatList.unique (List.filter (fun n -> not (H.mem hid n.pere) ) arbolistf) in
+
+
+        let feuilles = BatList.unique (H.find_all hid "") in
+        let  noeuds = let _,n = (BatList.split (h2l hpid)) in BatList.unique n in
+        racines, hpid, hid, noeuds, feuilles;;
 
 
 (* #trace check_function;;
