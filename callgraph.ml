@@ -2,6 +2,7 @@
 
 open Ast;;
 open Source;;
+open Liner;;
 
 module H = BatHashtbl;;
 
@@ -109,21 +110,53 @@ let fusionne l = let groupes = BatList.group (fun a -> fun b -> if a = b then 0 
 let hash_verif_recursiv_arbre =  H.create 1024 ;;
 
 
-let rec construit_arbre hpid  noeudss feuilles n nodee =
+let rec construit_arbre hpid  noeudss feuilles  node =
+                let profondeur_max  = 8 in
+                let profondeur_cour = BatList.length (H.find_all hash_verif_recursiv_arbre node )  in
+                let r               =  string_of_int (Random.int 100) in
                 (* je cherche dans la H, toutes les fonctions déclarées ayant le nom de fun_call*)
-                let _          = H.add hash_verif_recursiv_arbre nodee (string_of_int n) in
-                let  node     = match BatList.length (H.find_all hash_verif_recursiv_arbre nodee ) > 30 with
-                                        | true  -> {pere = "RECURSION" ; fun_call = "RECURSION"}
-                                        | false -> nodee in
-                let sous_arbre =  BatList.unique (
-                                List.map (construit_arbre hpid noeudss feuilles (n+1)) 
+                let _          = H.add hash_verif_recursiv_arbre node r in
+                let  sous_arbre     = match profondeur_cour > profondeur_max with
+                                        | true  -> (*print_endline ("Cas de récursion à l'ordre "^string_of_int profondeur_cour )*) []
+                                        | false -> BatList.unique (
+                                List.map (construit_arbre hpid noeudss feuilles ) 
                                          (BatList.flatten (BatList.map (fun elem -> BatList.filter (fun e -> elem.fun_call = e.pere) (noeudss@feuilles)) (H.find_all hpid node.pere)))
-                                ) in
-                       (* List.map (construit_arbre hpid noeudss) (BatList.flatten (BatList.map (fun e -> H.find_all hpid e.fun_call)  (H.find_all hpid node.pere) ))  in*)
+                                )  in
                 match BatList.exists ( fun e -> e.pere = node.pere) noeudss with
                 | false ->  Feuille node.pere
-                | true  ->  if n < 30 then Noeud (node.pere, BatList.unique (fusionne sous_arbre)) else Feuille (node.pere^"__RECURSION__");;
+                | true  -> if profondeur_cour < profondeur_max then  Noeud (node.pere, BatList.unique (fusionne sous_arbre)) else Feuille ("RECURSION"^r);;
 
+
+(*
+let rec check_recursive 
+                (hpid : (string, func_call) H.t) 
+                (hid : (string, func_call) H.t) 
+                nom_fonction = (*répond à la question : Est-ce que cette fonction appelée appelle une fonction qui fait partie des n pères de cette fonction*)
+                (* la fonction  est-elle appelée dans une fonction ?)*) 
+                let nodes_fonction                     = try Some ( BatList.unique (H.find_all hpid nom_fonction) ) with Not_found -> None in
+                let check_exist_un_pere  nom_fonction = H.mem hid nom_fonction in
+                let find f l = BatList.find_exn f Not_found l in
+                (*Renvoi la liste des fonction qui appellent cette fonction*)
+                let check_pere_appelle fonction       = 
+                                                        let peres_possibles = H.find_all hid fonction in
+                                                        BatList.unique (BatList.filter (fun e -> e.fun_call = fonction) peres_possibles) in (* un peu stupide...*)
+                let liste_des_peres_de fonction       =
+                         let rec rec_liste_des_peres_de fonction   = 
+                                        let l = check_pere_appelle fonction in
+                                        match l with
+                                        | []    -> []
+                                        | t::q  ->  (BatList.unique (check_pere_appelle fonction))@(BatList.unique (BatList.flatten (BatList.map (fun e -> check_pere_appelle e.pere) q))) 
+                in try BatList.flatten (BatList.map rec_liste_des_peres_de (BatList.unique (H.find_all hpid nom_fonction)) ) with Not_found -> [] 
+                         in
+                match nodes_fonction with
+                | None          -> false (* C'est bon, pas récursive*)
+                | Some fonctions -> (** on récupère les pères possibles *)
+                                let peres = BatList.unique (BatList.flatten (BatList.map liste_des_peres_de fonctions)) in
+                                (* Soit Ni les nodes représentant la fonction (node.pere) dont on vérifie qu'elle est pas recursive
+                                 * Soit Pi, la liste des nodes n pères des Ni
+                                 * On veut savoir si Exist k,l tq Pk.fun_call = Nl.pere  *)
+                            try BatList.length (find (fun pere -> BatList.exists (fun node -> node.pere =  pere.fun_call) fonctions) peres) > 0 with Not_found -> false
+*)
 
 
 let arborify arbolist =
@@ -145,7 +178,7 @@ let arborify arbolist =
 
         let feuilles = BatList.unique (H.find_all hid "") in
         let  noeuds = let _,n = (BatList.split (h2l hpid)) in BatList.unique n in
-        fusionne (BatList.unique (List.map (construit_arbre hpid noeuds feuilles 0) racines))
+        fusionne (BatList.unique (List.map (construit_arbre hpid noeuds feuilles ) racines))
 
 
 
@@ -168,7 +201,6 @@ let rec to_string  nbindent n =
     | FunDecl(start_pos, end_pos, func) ->
           match func with
           | (Some name, _, _) ->
-                    print_endline "On est dans une déclaration de fonction !!!";                          
                     check_function  name func 
           | (None, _, _) -> check_function (fonction_mere^".__anonyme__") func
 
@@ -203,7 +235,6 @@ let rec to_string  nbindent n =
                             | B (B_bracket, Apply (V receveur, [L (String argument)]), L (String methode)) -> receveur^"("^argument^")"^"."^methode
                             | B (B_bracket, Apply (V receveur, [V argument]), L (String methode))          -> receveur^"("^argument^")"^"."^methode
                             | _   -> "__" in
-                    print_endline "On est dans une application de fonction !!!";
                     addFunc fonction_mere nom_appel;
                     check_expr fonction_mere x;
                     List.iter (check_expr fonction_mere) xl
@@ -325,4 +356,60 @@ let callgraph sources =
     end
     sources
 ;;
+
+
+
+let rec really_read fd buffer start length =
+  if length <= 0 then () else
+    match Unix.read fd buffer start length with
+      | 0 -> raise End_of_file
+      | r -> really_read fd buffer (start + r) (length - r);;
+
+
+let file2string path =
+  let chan = try open_in path with Sys_error e -> print_endline ("Erreur d'ouverture du fichier :"^path);failwith "Erreur fichier" in
+  let d = Unix.openfile path [Unix.O_RDONLY] 0o644 in
+  let t = in_channel_length chan in
+  let buffer = close_in chan; String.make t '*' in
+  let b = really_read d buffer 0 t in
+    buffer;;
+
+let affiche_point() = output_string stdout ".";  flush stdout ;;  
+
+
+let from_bin f =
+        let  binCallGraph = file2string f in
+        let (ast: program) =  affiche_point(); Marshal.from_string binCallGraph 0 in
+        let source = {
+                s_file = "";
+                s_text = "";
+                s_source = ast;
+                s_liner =  {
+                        l_length = 0;
+                        l_table = [|8,8|];
+                        l_offset = 8
+                };
+                s_ignorify = false;
+                s_warnify = false;
+                }
+        in 
+        let _ =  affiche_point(); callgraph [source] in
+        affiche_point(); (!^ dyn_call_list);;
+
+
+
+
+let treePrint sources = 
+         let _     =  affiche_point(); callgraph sources in
+         let calls =  affiche_point(); (!^ dyn_call_list) in
+         let strs  =  affiche_point(); List.map (to_string 0) (arborify calls) in
+        List.iter print_endline strs;;
+
+let treeString f =    
+        let calls = from_bin f in
+        let strs  =  affiche_point();List.map (to_string 0) (arborify calls) in
+        let _     = Gc.full_major() in 
+        String.concat "\n" strs;;
+
+
 (* ***)

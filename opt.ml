@@ -8,6 +8,7 @@ let dump_env = ref false;;
 let just_syntax = ref false;;
 let dont_catch = ref false;;
 let list_props = ref false;;
+let makeTree   = ref false;;
 let quiet = ref false;;
 let no_warnings = ref false;;
 let warnify : string list ref = ref [];;

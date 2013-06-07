@@ -432,6 +432,12 @@ let sources oc sl =
         info "Typechecking";
         Eval.evaluate ~warn ~warn_cd ~error ~error_cd !sources
       end;
+     if !Opt.makeTree then
+      begin
+        info "Making Call tree";
+        Callgraph.treePrint !sources
+      end;
+
     if !Opt.check then
       begin
         info "Checking";

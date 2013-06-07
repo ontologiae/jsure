@@ -61,6 +61,10 @@ module Specs =
         Set list_props,
         " List properties accessed";
 
+        "-tree",
+        Set makeTree,
+        " output a call tree à la UNIX tree";
+
         "-minefield",
         String(aor minefield),
         "<file> Attempt to detect misspellings of identifiers contained in this file";

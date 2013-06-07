@@ -7,7 +7,7 @@ PREFIX?=/usr/local
 all: jsure
 
 jsure:
-	ocamlbuild jsure.native
+	ocamlbuild -pkg batteries jsure.native
 
 install: all
 	install -m 0755 jsure.native $(PREFIX)/bin/jsure

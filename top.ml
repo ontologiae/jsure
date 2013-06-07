@@ -54,9 +54,12 @@ let file2string path =
   let b = really_read d buffer 0 t in
     buffer;;
 
-let from_bin f = 
+let affiche_point() = output_string stdout ".";  flush stdout ;;  
+
+
+let from_bin f =
         let  binCallGraph = file2string f in
-        let (ast: program) = Marshal.from_string binCallGraph 0 in
+        let (ast: program) =  affiche_point(); Marshal.from_string binCallGraph 0 in
         let source = {
                 s_file = "";
                 s_text = "";
@@ -70,8 +73,8 @@ let from_bin f =
                 s_warnify = false;
                 }
         in 
-        let _ = Callgraph.callgraph [source] in
-                (!^ Callgraph.dyn_call_list);;
+        let _ =  affiche_point(); Callgraph.callgraph [source] in
+        affiche_point(); (!^ Callgraph.dyn_call_list);;
 
 
 
@@ -375,8 +378,16 @@ List.map (to_string 0) (arborify arbolist)
 
 let treePrint f = 
         let calls = from_bin f in
-        let strs  = List.map (to_string 0) (arborify calls) in
+        let strs  =  affiche_point();List.map (to_string 0) (arborify calls) in
+        let _     = print_endline "" in
         List.iter print_endline strs;;
+
+let treeString f =    
+        let calls = from_bin f in
+        let strs  =  affiche_point();List.map (to_string 0) (arborify calls) in
+        let _     = Gc.full_major() in 
+        String.concat "\n" strs;;
+
 
 
 (* #trace check_function;;
