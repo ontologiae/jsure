@@ -39,6 +39,39 @@ open Liner;;
 (*let src = Process.read_source (`File "tests/flowanalysis.js");;*)
 open Callgraph;;
 
+let rec really_read fd buffer start length =
+  if length <= 0 then () else
+    match Unix.read fd buffer start length with
+      | 0 -> raise End_of_file
+      | r -> really_read fd buffer (start + r) (length - r);;
+
+
+let file2string path =
+  let chan = try open_in path with Sys_error e -> print_endline ("Erreur d'ouverture du fichier :"^path);failwith "Erreur fichier" in
+  let d = Unix.openfile path [Unix.O_RDONLY] 0o644 in
+  let t = in_channel_length chan in
+  let buffer = close_in chan; String.make t '*' in
+  let b = really_read d buffer 0 t in
+    buffer;;
+
+let from_bin f = 
+        let  binCallGraph = file2string f in
+        let (ast: program) = Marshal.from_string binCallGraph 0 in
+        let source = {
+                s_file = "";
+                s_text = "";
+                s_source = ast;
+                s_liner =  {
+                        l_length = 0;
+                        l_table = [|8,8|];
+                        l_offset = 8
+                };
+                s_ignorify = false;
+                s_warnify = false;
+                }
+        in 
+        let _ = Callgraph.callgraph [source] in
+                (!^ Callgraph.dyn_call_list);;
 
 
 
@@ -333,14 +366,23 @@ let callgraphExempleSource = {
 
 let h2l h = BatList.of_enum (BatHashtbl.enum h);;
 
-
+(*
 
 Callgraph.callgraph [callgraphExempleSource];;
- let arbolist = (!^ Callgraph.dyn_call_list);;
- #trace check_function;;
+let arbolist = (!^ Callgraph.dyn_call_list);;
+List.map (to_string 0) (arborify arbolist)
+*)
+
+let treePrint f = 
+        let calls = from_bin f in
+        let strs  = List.map (to_string 0) (arborify calls) in
+        List.iter print_endline strs;;
+
+
+(* #trace check_function;;
  #trace check_statement_option;;
   #trace check_expr_as_lhs;;
   #trace check_expr;;
   #trace check_statement;;
   #trace check_lhs_or_var;;
-  #trace check_variable_declaration;;
+  #trace check_variable_declaration;;*)

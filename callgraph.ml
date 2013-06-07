@@ -56,6 +56,9 @@ let addFunc f a = push {
                         } ;;
 
 
+let reset () = 1;;
+
+
 let h2l h = BatList.of_enum (BatHashtbl.enum h);;
 (*
 let rec difference  m1 m2 = match m1 with
@@ -103,17 +106,23 @@ let fusionne l = let groupes = BatList.group (fun a -> fun b -> if a = b then 0 
          List.map combineOne groupes;;
 
 
+let hash_verif_recursiv_arbre =  H.create 1024 ;;
 
-let rec construit_arbre hpid  noeudss feuilles node =
+
+let rec construit_arbre hpid  noeudss feuilles n nodee =
                 (* je cherche dans la H, toutes les fonctions déclarées ayant le nom de fun_call*)
+                let _          = H.add hash_verif_recursiv_arbre nodee (string_of_int n) in
+                let  node     = match BatList.length (H.find_all hash_verif_recursiv_arbre nodee ) > 30 with
+                                        | true  -> {pere = "RECURSION" ; fun_call = "RECURSION"}
+                                        | false -> nodee in
                 let sous_arbre =  BatList.unique (
-                                List.map (construit_arbre hpid noeudss feuilles) 
+                                List.map (construit_arbre hpid noeudss feuilles (n+1)) 
                                          (BatList.flatten (BatList.map (fun elem -> BatList.filter (fun e -> elem.fun_call = e.pere) (noeudss@feuilles)) (H.find_all hpid node.pere)))
                                 ) in
                        (* List.map (construit_arbre hpid noeudss) (BatList.flatten (BatList.map (fun e -> H.find_all hpid e.fun_call)  (H.find_all hpid node.pere) ))  in*)
                 match BatList.exists ( fun e -> e.pere = node.pere) noeudss with
                 | false ->  Feuille node.pere
-                | true  ->  Noeud (node.pere, BatList.unique (fusionne sous_arbre)) ;;
+                | true  ->  if n < 30 then Noeud (node.pere, BatList.unique (fusionne sous_arbre)) else Feuille (node.pere^"__RECURSION__");;
 
 
 
@@ -121,7 +130,7 @@ let arborify arbolist =
          let hpid1 = H.create 1024 in
         let _   = List.iter (fun n -> H.add hpid1 n.pere n) arbolist in
 
-        let arbolistf = arbolist@(BatList.unique (BatList.map (fun i -> { pere = i.fun_call ; fun_call = ""} )   (List.filter (fun e -> not (H.mem hpid1 e.fun_call) )  arbolist))) in
+        let arbolistf = BatList.unique  (arbolist@(BatList.unique (BatList.map (fun i -> { pere = i.fun_call ; fun_call = ""} )   (List.filter (fun e -> not (H.mem hpid1 e.fun_call) )  arbolist)))) in
                (*Liste des pères*)
         let hpid = H.create 1024 in
         let _   = List.iter (fun n -> H.add hpid n.pere n) (List.filter (fun n -> not (n.fun_call = "")) arbolistf) in
@@ -131,14 +140,22 @@ let arborify arbolist =
         let _   = List.iter (fun n -> H.add hid n.fun_call n) arbolistf in
 
         (* Liste des élément sans racines*)
-        let racines = List.filter (fun n -> not (H.mem hid n.pere) ) arbolistf in
+        let racines = BatList.unique (List.filter (fun n -> not (H.mem hid n.pere) ) arbolistf) in
 
 
-        let feuilles = H.find_all hid "" in
-        let _, noeuds = BatList.split (h2l hpid) in
-        fusionne (BatList.unique (List.map (construit_arbre hpid noeuds feuilles ) racines))
+        let feuilles = BatList.unique (H.find_all hid "") in
+        let  noeuds = let _,n = (BatList.split (h2l hpid)) in BatList.unique n in
+        fusionne (BatList.unique (List.map (construit_arbre hpid noeuds feuilles 0) racines))
 
 
+
+
+let rec to_string  nbindent n =
+        let string_repeat s n = Array.fold_left (^) "" (Array.make n s) in
+        let indentation = string_repeat "|   " nbindent  in
+        match n with
+        | Noeud   (t, q) -> indentation^"├── "^t^"\n"^(String.concat "" (List.map (to_string (nbindent+1)) q))
+        | Feuille t      -> indentation^"├── "^t^"\n";;
 
 
            
@@ -180,11 +197,17 @@ let arborify arbolist =
                     let nom_appel   = 
                             match x with
                             | V n -> n
-                            | _   -> failwith "On attend un Apply(V \"qqchose\",..." in
+                            | Function (i,j, (None, _,_)) -> "anonymous"
+                            | B (B_bracket, This, L (String str)) -> "this."^str
+                            | B (B_bracket, V receveur, L (String message)) -> receveur^"."^message 
+                            | B (B_bracket, Apply (V receveur, [L (String argument)]), L (String methode)) -> receveur^"("^argument^")"^"."^methode
+                            | B (B_bracket, Apply (V receveur, [V argument]), L (String methode))          -> receveur^"("^argument^")"^"."^methode
+                            | _   -> "__" in
                     print_endline "On est dans une application de fonction !!!";
                     addFunc fonction_mere nom_appel;
                     check_expr fonction_mere x;
                     List.iter (check_expr fonction_mere) xl
+    | Assign (B (B_bracket, V receveur, L (String methode)), A_eq, Function(i,j,f) ) -> check_expr (receveur^"."^methode) (Function(i,j,f))
     | Assign(x1, _, x2) ->
       check_expr_as_lhs fonction_mere x1;
       check_expr fonction_mere x2;
@@ -209,7 +232,7 @@ let arborify arbolist =
                     let nom,vars,code = func in
                     let nom_final = 
                             match nom with
-                            | None   ->  "__anonyme__"^(string_of_int start_pos)
+                            | None   ->  fonction_mere^"-->anonyme__"^(string_of_int start_pos)
                             | Some n ->  n in
                     check_function nom_final func
 
