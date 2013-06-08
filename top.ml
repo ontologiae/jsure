@@ -394,13 +394,19 @@ List.map (to_string 0) (arborify arbolist)
 
 let treePrint f = 
         let calls = from_bin f in
-        let strs  =  affiche_point();List.map (to_string 0) (arborify calls) in
+        let alls   = arborify calls in
+        let reduce_arb = 
+                let firsts = fusionne alls in List.map combineTree firsts in
+        let strs  =  affiche_point();List.map (to_string 0) reduce_arb in
         let _     = print_endline "" in
         List.iter print_endline strs;;
 
 let treeString f =    
         let calls = from_bin f in
-        let strs  =  affiche_point();List.map (to_string 0) (arborify calls) in
+        let alls   = arborify calls in
+        let reduce_arb =  
+                let firsts = fusionne alls in List.map combineTree firsts in
+        let strs  =  affiche_point();List.map (to_string 0)  reduce_arb in
         let _     = Gc.full_major() in 
         String.concat "\n" strs;;
 

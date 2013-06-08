@@ -89,11 +89,7 @@ let trouve_et_enleve h cle =
 
 
 
-
-
-
-let fusionne l = let groupes = BatList.group (fun a -> fun b -> if a = b then 0 else 1) l in
-                 let combineOne l =
+ let combineOne l =
                    let couples = List.map (
                      fun liste_meme -> match liste_meme with
                        | Noeud (a, ll) -> Noeud(a,[]), ll
@@ -104,15 +100,82 @@ let fusionne l = let groupes = BatList.group (fun a -> fun b -> if a = b then 0 
                    let _,souslistes = BatList.split couples in
                    match tete with
                      | Noeud(a,[] ) -> Noeud(a,BatList.concat souslistes)
-                     | Feuille a as f -> f in
-                 List.map combineOne groupes;;
+                     | Feuille a as f -> f ;;
 
+
+let group_berenger cmp = function
+  | [] -> []
+  | l ->
+    let rev_cmp a b = cmp b a in
+    let sorted = List.sort rev_cmp l in
+    match sorted with
+      | x :: xs ->
+        let local, global, _ =
+          L.fold_left
+            (fun (local_acc, global_acc, last) y ->
+              if 0 = cmp last y then
+                (y :: local_acc, global_acc, y)
+              else
+                ([y], local_acc :: global_acc, y)
+            )
+            ([x], [], x)
+            xs
+        in
+        local :: global
+      | _ -> failwith "UNREACHABLE STATEMENT"
+
+
+let fusionne l = 
+        let equalNode a b =
+                match a, b with
+                | Feuille a, Feuille b -> a = b
+                | Noeud(a,b), Noeud(c,d) -> a = c 
+                | Noeud (_, _), Feuille _ -> false 
+                | Feuille _, Noeud (_, _) -> false in
+        let groupes = group_berenger (fun a -> fun b -> if equalNode a  b then 0 else -1) l in
+        List.map combineOne groupes;;
+                
 
 let (hash_verif_recursiv_arbre : (string,bool) H.t) =  H.create 1024 ;;
 
 
 let donne_papa hid nom_fonction =  H.find_all hid nom_fonction ;;
 
+let rec combineTree arb  =
+        match arb with
+        | Feuille a as b  ->  b
+        | Noeud (a,b)     ->  Noeud(a, fusionne b);;
+
+
+let rec parcour action arb  =
+        let arb2 = action arb in
+        match arb2 with
+        | Feuille a as b  ->  b
+        | Noeud (a,b)     ->  Noeud(a, List.map (parcour action ) b);;
+
+let rec cherche_element_arbre_et_execute predicat action arbre =
+        let lsta e = match e with
+        | Feuille a  -> []
+        | Noeud(_,l) -> l in
+
+        let vasy arb =  match arb with
+                | Feuille a as b   -> b
+                | Noeud (a,b) as c -> let sousa = lsta c in Noeud(a, List.map (cherche_element_arbre_et_execute predicat action ) sousa) in
+
+    match predicat arbre with
+      | true -> let nouvel_arbre = action arbre in vasy nouvel_arbre 
+      | false -> vasy arbre ;;
+
+
+let rec reduce_arbre f val_init arbre =
+         let lsta e = match e with
+    | Feuille a  -> []
+    | Noeud(_,l) -> l in
+
+        let red = reduce_arbre f in
+        match lsta arbre with
+        | [] -> f val_init arbre 
+        |  l -> List.fold_left red (f val_init arbre) l
 
 
 let rec cherche_element_arbre f arbre =
@@ -164,39 +227,6 @@ let rec check_rec  (hpid : (string, func_call) H.t)
 
 
 
-
-let rec check_recursive 
-    (hpid : (string, func_call) H.t) 
-    (hid : (string, func_call) H.t) 
-    (nom_fonction : string) = (*répond à la question : Est-ce que cette fonction appelée appelle une fonction qui fait partie des n pères de cette fonction*)
-                (* la fonction  est-elle appelée dans une fonction ?)*) 
-  let nodes_fonction                     =  ( BatList.unique (H.find_all hpid nom_fonction) ) in
-                (*Renvoi la liste des fonction qui appellent cette fonction*)
-  let check_pere_appelle fonction       = 
-    let peres_possibles = H.find_all hid fonction in
-    BatList.unique (BatList.filter (fun e -> e.fun_call = fonction) peres_possibles) in (* un peu stupide...*)
-  let liste_des_peres_de fonction       =
-    let rec rec_liste_des_peres_de (fonction : func_call)   = 
-      let l = check_pere_appelle fonction.pere in
-      match l with
-        | []    -> []
-        | t::q  ->  (BatList.unique (check_pere_appelle fonction.pere))@(BatList.unique (BatList.flatten (BatList.map (fun e -> check_pere_appelle e.pere) q))) 
-    in try BatList.flatten (BatList.map rec_liste_des_peres_de (BatList.unique (H.find_all hpid nom_fonction)) ) with Not_found -> [] 
-  in
-  try H.find hash_verif_recursiv_arbre nom_fonction
-  with Not_found -> 
-    match nodes_fonction with
-      | []          -> false (* C'est bon, pas récursive*)
-      | fonctions   -> (** on récupère les pères possibles *)
-          let peres = BatList.unique (BatList.flatten (BatList.map liste_des_peres_de fonctions)) in
-                                        (* Soit Ni les nodes représentant la fonction (node.pere) dont on vérifie qu'elle est pas recursive
-                                         * Soit Pi, la liste des nodes n pères des Ni
-                                         * On veut savoir si Exist k,l tq Pk.fun_call = Nl.pere  *)
-  let _ = print_endline ("pour "^nom_fonction^"       :         [\""^(String.concat "\" ; \"" (List.map (fun e -> e.pere) peres))^"\"]") in 
-          try let res = BatList.length (BatList.filter (fun pere -> BatList.exists (fun node -> node.pere =  pere.fun_call) fonctions) peres) > 0 in
-              let _   = H.add hash_verif_recursiv_arbre nom_fonction res in
-              res
-          with Not_found -> let _   = H.add hash_verif_recursiv_arbre nom_fonction false in false
 
 (*construit_arbre**** <-- {pere = "p.cherche_tous_dans_arbo"; fun_call = "func"}
 construit_arbre**** <-- {pere = "func"; fun_call = ""}
@@ -479,19 +509,37 @@ let from_bin f =
   affiche_point(); (!^ dyn_call_list);;
 
 
+let treePrint f = 
+        let calls = from_bin f in
+        let alls   = arborify calls in
+        let reduce_arb = 
+                let firsts = fusionne alls in List.map combineTree firsts in
+        let strs  =  affiche_point();List.map (to_string 0) reduce_arb in
+        let _     = print_endline "" in
+        List.iter print_endline strs;;
+
 
 
 let treePrint sources = 
   let _     =  affiche_point(); callgraph sources in
   let calls =  affiche_point(); (!^ dyn_call_list) in
-  let strs  =  affiche_point(); List.map (to_string 0) (L.unique (arborify calls)) in
-  List.iter print_endline strs;;
+  let alls   = arborify calls in
+        let reduce_arb = 
+                let firsts = fusionne alls in List.map combineTree firsts in
+        let strs  =  affiche_point();List.map (to_string 0) reduce_arb in
+        let _     = print_endline "" in
+        List.iter print_endline strs;;
 
 let treeString f =    
   let calls = from_bin f in
-  let strs  =  affiche_point();List.map (to_string 0) (L.unique (arborify calls)) in
-  let _     = Gc.full_major() in 
-  String.concat "\n" strs;;
+  let alls   = arborify calls in
+        let reduce_arb =  
+                let firsts = fusionne alls in List.map combineTree firsts in
+        let strs  =  affiche_point();List.map (to_string 0)  reduce_arb in
+        let _     = Gc.full_major() in 
+        String.concat "\n" strs;;
+
+
 
 
 (* ***)
