@@ -396,7 +396,9 @@ let arborify2 arbolist =
         let arbolistf = BatList.unique  (arbolist@(BatList.unique (BatList.map (fun i -> { pere = i.fun_call ; fun_call = ""} )   (List.filter (fun e -> not (H.mem hpid1 e.fun_call) )  arbolist)))) in
                (*Liste des pères*)
         let hpid = H.create 1024 in
-        let _   = List.iter (fun n -> H.add hpid n.pere n) (List.filter (fun n -> not (n.fun_call = "")) arbolistf) in
+        let _    = List.iter (fun n -> H.add hpid n.pere n) (List.filter (fun n -> not (n.fun_call = "")) arbolistf) in
+        (* On nettoie les appels
+        let hpid = H.filteri (fun cle -> fun valeur ->  cle != valeur) hpid in*)
 
         (* liste des items *)
         let hid = H.create 1024 in
