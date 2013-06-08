@@ -56,6 +56,22 @@ let file2string path =
 
 let affiche_point() = output_string stdout ".";  flush stdout ;;  
 
+let source f = 
+        let  binCallGraph = file2string f in
+        let (ast: program) =  affiche_point(); Marshal.from_string binCallGraph 0 in
+         {
+                s_file = "";
+                s_text = "";
+                s_source = ast;
+                s_liner =  {
+                        l_length = 0;
+                        l_table = [|8,8|];
+                        l_offset = 8
+                };
+                s_ignorify = false;
+                s_warnify = false;
+                };;
+
 
 let from_bin f =
         let  binCallGraph = file2string f in
@@ -74,7 +90,7 @@ let from_bin f =
                 }
         in 
         let _ =  affiche_point(); Callgraph.callgraph [source] in
-        affiche_point(); (!^ Callgraph.dyn_call_list);;
+        affiche_point(); BatList.unique (!^ Callgraph.dyn_call_list);;
 
 
 
